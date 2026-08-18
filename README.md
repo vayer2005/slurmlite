@@ -79,3 +79,7 @@ distr-scheduling/
 - Go
 - gRPC + Protobuf
 
+## Resources
+
+- [Too Many Cooks in the Kitchen: Gang Scheduling for Predictable Performance](https://people.eecs.berkeley.edu/~kubitron/courses/cs262a-F14/projects/reports/project3_report.pdf) (UC Berkeley CS262A, Fall 2014)
+
