@@ -14,3 +14,15 @@
 package job
 
 // TODO: implement JobManager coordinating queue and in-memory job store
+import (
+	"sync"
+	"time"
+)
+
+type JobManager struct {
+	queue Queue
+	jobs map[string]Job
+	mu sync.RWMutex
+}
+
+func (m *JobManager) Submit(job *Job) error {}
