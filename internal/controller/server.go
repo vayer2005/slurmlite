@@ -15,4 +15,7 @@
 
 package controller
 
+// MaxServerThreads (Slurm MAX_SERVER_THREADS) caps concurrent incoming RPC handlers.
+const MaxServerThreads = 256
+
 // TODO: implement gRPC ControllerService server

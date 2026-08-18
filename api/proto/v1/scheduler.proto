@@ -1,24 +1,9 @@
 // SlurmLite gRPC API definitions.
 //
-// Define protobuf messages and services for controller ↔ node and slctl ↔ controller
-// communication. Generate Go code with:
-//   protoc --go_out=. --go-grpc_out=. api/proto/v1/scheduler.proto
-
-//
-// ControllerService (exposed by controller, called by slctl and nodes):
-//   - SubmitJob: accept a job spec (node count, CPUs per node, command, duration limit)
-//   - ListJobs: return pending, running, and recently completed jobs
-//   - CancelJob: cancel a pending or running job by ID
-//   - ListNodes: return all registered nodes and their status/resources
-//   - RegisterNode: called by a node on startup to join the cluster
-//   - Heartbeat: called periodically by nodes to report liveness and current load
-//   - ReportJobStatus: called by nodes when assigned work starts, completes, or fails
-//
-// Suggested messages:
-//   - JobSpec, Job, JobStatus (pending/running/completed/failed/cancelled)
-//   - NodeSpec, Node, NodeStatus (online/offline/busy)
-//   - ResourceRequest (nodes_required, cpus_per_node, max_duration)
-//   - WorkAssignment (job_id, command, env vars) sent to nodes when gang-scheduled
+// Generate Go code with:
+//   protoc --go_out=. --go_opt=module=github.com/vittalayer/distr-scheduling \
+//     --go-grpc_out=. --go-grpc_opt=module=github.com/vittalayer/distr-scheduling \
+//     api/proto/v1/scheduler.proto
 
 syntax = "proto3";
 
@@ -26,4 +11,232 @@ package slurmlite.v1;
 
 option go_package = "github.com/vittalayer/distr-scheduling/api/proto/v1;slurmlitev1";
 
-// TODO: implement messages and services described above
+import "google/protobuf/duration.proto";
+import "google/protobuf/timestamp.proto";
+
+// ControllerService is exposed by the controller.
+// slctl calls job/cluster query RPCs; node agents call registration, heartbeat,
+// status reporting, and WatchWork.
+service ControllerService {
+  // Submit a job into the pending queue. The controller does not start work
+  // until the scheduler can gang-allocate every requested node.
+  rpc SubmitJob(SubmitJobRequest) returns (SubmitJobResponse);
+
+  // List pending, running, and recently completed jobs.
+  rpc ListJobs(ListJobsRequest) returns (ListJobsResponse);
+
+  // Cancel a pending or running job by ID. Running jobs are killed on nodes.
+  rpc CancelJob(CancelJobRequest) returns (CancelJobResponse);
+
+  // List all registered nodes and their status/resources.
+  rpc ListNodes(ListNodesRequest) returns (ListNodesResponse);
+
+  // Called by a node on startup to join the cluster.
+  rpc RegisterNode(RegisterNodeRequest) returns (RegisterNodeResponse);
+
+  // Called periodically by nodes to report liveness and current load.
+  rpc Heartbeat(HeartbeatRequest) returns (HeartbeatResponse);
+
+  // Called by nodes when assigned work starts, completes, fails, or is cancelled.
+  rpc ReportJobStatus(ReportJobStatusRequest) returns (ReportJobStatusResponse);
+
+  // Long-lived server stream. The controller pushes WorkAssignment and cancel
+  // notices to a registered node when a job is gang-scheduled or cancelled.
+  rpc WatchWork(WatchWorkRequest) returns (stream WatchWorkResponse);
+}
+
+// ---------------------------------------------------------------------------
+// Enums
+// ---------------------------------------------------------------------------
+
+enum JobStatus {
+  JOB_STATUS_UNSPECIFIED = 0;
+  JOB_STATUS_PENDING = 1;
+  JOB_STATUS_RUNNING = 2;
+  JOB_STATUS_COMPLETED = 3;
+  JOB_STATUS_FAILED = 4;
+  JOB_STATUS_CANCELLED = 5;
+}
+
+enum NodeStatus {
+  NODE_STATUS_UNSPECIFIED = 0;
+  NODE_STATUS_ONLINE = 1;
+  NODE_STATUS_OFFLINE = 2;
+  NODE_STATUS_BUSY = 3;
+}
+
+// Event reported by a node for an assigned job.
+enum JobEvent {
+  JOB_EVENT_UNSPECIFIED = 0;
+  JOB_EVENT_STARTED = 1;
+  JOB_EVENT_COMPLETED = 2;
+  JOB_EVENT_FAILED = 3;
+  JOB_EVENT_CANCELLED = 4;
+}
+
+// ---------------------------------------------------------------------------
+// Job submission
+// ---------------------------------------------------------------------------
+
+// ResourceRequest is the gang-scheduling constraint for a job.
+// The scheduler allocates only when nodes_required nodes each have at least
+// cpus_per_node free CPUs. Partial allocation is never valid.
+message ResourceRequest {
+  // Number of nodes that must be allocated together. Must be >= 1.
+  int32 nodes_required = 1;
+  // CPUs reserved on each allocated node. Must be >= 1.
+  int32 cpus_per_node = 2;
+  // Optional wall-clock limit. Nodes kill the process if exceeded.
+  google.protobuf.Duration max_duration = 3;
+}
+
+// JobSpec is what slctl submit sends: resources plus the program to run.
+message JobSpec {
+  ResourceRequest resources = 1;
+  // Executable path or name (argv[0]). Must be non-empty.
+  string command = 2;
+  // Arguments passed to the command (argv[1:]).
+  repeated string args = 3;
+  // Optional user-supplied environment. The controller may add SlurmLite
+  // variables (SLURMLITE_JOB_ID, SLURMLITE_NODE_RANK, SLURMLITE_NNODES)
+  // when dispatching WorkAssignment.
+  map<string, string> env = 4;
+}
+
+message Job {
+  string id = 1;
+  JobStatus status = 2;
+  JobSpec spec = 3;
+  // Populated when the job is gang-scheduled.
+  repeated string assigned_node_ids = 4;
+  google.protobuf.Timestamp submitted_at = 5;
+  google.protobuf.Timestamp started_at = 6;
+  google.protobuf.Timestamp finished_at = 7;
+  int32 exit_code = 8;
+  string error_message = 9;
+}
+
+// ---------------------------------------------------------------------------
+// Nodes
+// ---------------------------------------------------------------------------
+
+message NodeSpec {
+  // Optional. Controller may assign an ID if empty.
+  string id = 1;
+  string hostname = 2;
+  // Address the node is reachable at, if the controller ever dials it.
+  string address = 3;
+  int32 total_cpus = 4;
+}
+
+message Node {
+  string id = 1;
+  string hostname = 2;
+  string address = 3;
+  NodeStatus status = 4;
+  int32 total_cpus = 5;
+  int32 allocated_cpus = 6;
+  google.protobuf.Timestamp last_heartbeat = 7;
+  // Empty when the node is not running a job.
+  string current_job_id = 8;
+}
+
+// WorkAssignment is pushed to each allocated node when a job is gang-scheduled.
+message WorkAssignment {
+  string job_id = 1;
+  string command = 2;
+  repeated string args = 3;
+  map<string, string> env = 4;
+  google.protobuf.Duration max_duration = 5;
+  // Rank of this node in the allocation (0 .. nnodes-1).
+  int32 node_rank = 6;
+  // Total nodes in the allocation (same as resources.nodes_required).
+  int32 nnodes = 7;
+  int32 cpus_per_node = 8;
+}
+
+message CancelWork {
+  string job_id = 1;
+}
+
+// ---------------------------------------------------------------------------
+// slctl ↔ controller
+// ---------------------------------------------------------------------------
+
+message SubmitJobRequest {
+  JobSpec spec = 1;
+}
+
+message SubmitJobResponse {
+  Job job = 1;
+}
+
+message ListJobsRequest {
+  // Empty means all statuses.
+  repeated JobStatus statuses = 1;
+}
+
+message ListJobsResponse {
+  repeated Job jobs = 1;
+}
+
+message CancelJobRequest {
+  string job_id = 1;
+}
+
+message CancelJobResponse {
+  Job job = 1;
+}
+
+message ListNodesRequest {}
+
+message ListNodesResponse {
+  repeated Node nodes = 1;
+}
+
+// ---------------------------------------------------------------------------
+// node ↔ controller
+// ---------------------------------------------------------------------------
+
+message RegisterNodeRequest {
+  NodeSpec spec = 1;
+}
+
+message RegisterNodeResponse {
+  string node_id = 1;
+}
+
+message HeartbeatRequest {
+  string node_id = 1;
+  int32 allocated_cpus = 2;
+  string current_job_id = 3;
+}
+
+message HeartbeatResponse {
+  bool acknowledged = 1;
+  // If set, the node should stop this job even if WatchWork is down.
+  string cancel_job_id = 2;
+}
+
+message ReportJobStatusRequest {
+  string node_id = 1;
+  string job_id = 2;
+  JobEvent event = 3;
+  int32 exit_code = 4;
+  string error_message = 5;
+}
+
+message ReportJobStatusResponse {
+  bool acknowledged = 1;
+}
+
+message WatchWorkRequest {
+  string node_id = 1;
+}
+
+message WatchWorkResponse {
+  oneof payload {
+    WorkAssignment assignment = 1;
+    CancelWork cancel = 2;
+  }
+}
