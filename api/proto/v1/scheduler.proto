@@ -1,0 +1,29 @@
+// SlurmLite gRPC API definitions.
+//
+// Define protobuf messages and services for controller ↔ node and slctl ↔ controller
+// communication. Generate Go code with:
+//   protoc --go_out=. --go-grpc_out=. api/proto/v1/scheduler.proto
+
+//
+// ControllerService (exposed by controller, called by slctl and nodes):
+//   - SubmitJob: accept a job spec (node count, CPUs per node, command, duration limit)
+//   - ListJobs: return pending, running, and recently completed jobs
+//   - CancelJob: cancel a pending or running job by ID
+//   - ListNodes: return all registered nodes and their status/resources
+//   - RegisterNode: called by a node on startup to join the cluster
+//   - Heartbeat: called periodically by nodes to report liveness and current load
+//   - ReportJobStatus: called by nodes when assigned work starts, completes, or fails
+//
+// Suggested messages:
+//   - JobSpec, Job, JobStatus (pending/running/completed/failed/cancelled)
+//   - NodeSpec, Node, NodeStatus (online/offline/busy)
+//   - ResourceRequest (nodes_required, cpus_per_node, max_duration)
+//   - WorkAssignment (job_id, command, env vars) sent to nodes when gang-scheduled
+
+syntax = "proto3";
+
+package slurmlite.v1;
+
+option go_package = "github.com/vittalayer/distr-scheduling/api/proto/v1;slurmlitev1";
+
+// TODO: implement messages and services described above
