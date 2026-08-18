@@ -82,4 +82,5 @@ distr-scheduling/
 ## Resources
 
 - [Too Many Cooks in the Kitchen: Gang Scheduling for Predictable Performance](https://people.eecs.berkeley.edu/~kubitron/courses/cs262a-F14/projects/reports/project3_report.pdf) (UC Berkeley CS262A, Fall 2014)
+- [Architecture of the Slurm Workload Manager](https://jsspp.org/papers23/JSSPP_2023_keynote_SLURM.pdf) (Jette & Wickberg, JSSPP 2023 keynote)
 
