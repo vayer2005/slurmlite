@@ -1,15 +1,18 @@
 #!/usr/bin/env bash
 # Dummy MPI-style job for SlurmLite demos.
 #
-# When gang-scheduled across N nodes, this script should:
-#   - Print which node it is running on (hostname, node rank if env var provided)
-#   - Simulate work with sleep
-#   - Exit 0 on success
+# Prints which node this rank is on, holds the allocation briefly, then exits 0.
+# Controller-injected env (when implemented): SLURMLITE_JOB_ID, SLURMLITE_NODE_RANK,
+# SLURMLITE_NNODES.
 #
 # Usage (after cluster is running):
 #   slctl submit --nodes 3 --cpus-per-node 2 -- ./examples/simulate.sh
-#
-# Optional: controller can inject env vars like SLURMLITE_NODE_RANK, SLURMLITE_JOB_ID
-# so the script can demonstrate multi-node coordination.
+#   slctl submit --nodes 3 --cpus-per-node 2 -- ./examples/simulate.sh 5
 
-# TODO: implement demo script body
+set -euo pipefail
+
+SECONDS_TO_WORK="${1:-5}"
+
+echo "simulate: job=${SLURMLITE_JOB_ID:-unknown} rank=${SLURMLITE_NODE_RANK:-?} nnodes=${SLURMLITE_NNODES:-?} host=$(hostname) working ${SECONDS_TO_WORK}s"
+sleep "$SECONDS_TO_WORK"
+echo "simulate: rank=${SLURMLITE_NODE_RANK:-?} done"

@@ -66,8 +66,7 @@ distr-scheduling/
 │   ├── scheduler/      # Gang scheduling, resource accounting
 │   ├── job/            # Job model, queue, lifecycle
 │   └── cluster/        # Node registry, heartbeats, reaper
-├── examples/
-│   └── simulate.sh     # Dummy MPI-style job for demos
+├── examples/           # Sample jobs for demos (hold, fail, timeout, hello, barrier)
 └── scripts/
     └── start-cluster.sh
 ```
