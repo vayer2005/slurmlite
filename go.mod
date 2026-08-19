@@ -1,4 +1,4 @@
-module github.com/vittalayer/distr-scheduling
+module distr-scheduling
 
 go 1.25.0
 

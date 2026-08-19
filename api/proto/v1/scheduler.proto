@@ -1,15 +1,15 @@
 // SlurmLite gRPC API definitions.
 //
 // Generate Go code with:
-//   protoc --go_out=. --go_opt=module=github.com/vittalayer/distr-scheduling \
-//     --go-grpc_out=. --go-grpc_opt=module=github.com/vittalayer/distr-scheduling \
+//   protoc --go_out=. --go_opt=module=distr-scheduling \
+//     --go-grpc_out=. --go-grpc_opt=module=distr-scheduling \
 //     api/proto/v1/scheduler.proto
 
 syntax = "proto3";
 
 package slurmlite.v1;
 
-option go_package = "github.com/vittalayer/distr-scheduling/api/proto/v1;slurmlitev1";
+option go_package = "distr-scheduling/api/proto/v1;slurmlitev1";
 
 import "google/protobuf/duration.proto";
 import "google/protobuf/timestamp.proto";

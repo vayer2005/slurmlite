@@ -7,6 +7,6 @@ cd "$root"
 
 export PATH="$(go env GOPATH)/bin:${PATH}"
 
-protoc --go_out=. --go_opt=module=github.com/vittalayer/distr-scheduling \
-  --go-grpc_out=. --go-grpc_opt=module=github.com/vittalayer/distr-scheduling \
+protoc --go_out=. --go_opt=module=distr-scheduling \
+  --go-grpc_out=. --go-grpc_opt=module=distr-scheduling \
   api/proto/v1/scheduler.proto
