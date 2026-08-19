@@ -16,6 +16,8 @@ const (
 
 type Node struct {
 	ID            string
+	Hostname      string
+	Address       string
 	Status        Status
 	TotalCPUs     int
 	AllocatedCPUs int
@@ -40,6 +42,19 @@ func (r *Registry) RegisterNode(node Node) {
 	defer r.mu.Unlock()
 	if r.nodes == nil {
 		r.nodes = make(map[string]Node)
+	}
+	if existing, ok := r.nodes[node.ID]; ok {
+		if node.Hostname == "" {
+			node.Hostname = existing.Hostname
+		}
+		if node.Address == "" {
+			node.Address = existing.Address
+		}
+		if node.TotalCPUs == 0 {
+			node.TotalCPUs = existing.TotalCPUs
+		}
+		node.AllocatedCPUs = existing.AllocatedCPUs
+		node.CurrentJobID = existing.CurrentJobID
 	}
 	if node.Status == "" {
 		node.Status = StatusOnline
