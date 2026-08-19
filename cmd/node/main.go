@@ -44,7 +44,7 @@ func main() {
 		Interval:  *interval,
 	})
 
-	log.Printf("node %s heartbeating to %s every %s", *id, *addr, *interval)
+	log.Printf("node %s connected to %s (heartbeat every %s)", *id, *addr, *interval)
 	if err := agent.Run(ctx); err != nil && !errors.Is(err, context.Canceled) {
 		log.Fatal(err)
 	}
