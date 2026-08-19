@@ -14,6 +14,7 @@
 package scheduler
 
 import (
+	"context"
 	"strconv"
 	"sync"
 	"time"
@@ -45,13 +46,31 @@ type Scheduler struct {
 	jobManager *job.JobManager
 	registry   *cluster.Registry
 	dispatch   Dispatcher
+	kick       chan struct{}
 	mu         sync.Mutex
 }
 
-func (s *Scheduler) Run() {
+func (s *Scheduler) Kick() {
+	if s == nil {
+		return
+	}
+	select {
+	case s.kick <- struct{}{}:
+	default:
+	}
+}
+
+func (s *Scheduler) Run(ctx context.Context) {
+	ticker := time.NewTicker(SCHEDULER_INTERVAL)
+	defer ticker.Stop()
 	for {
-		if !s.trySchedule() {
-			time.Sleep(SCHEDULER_INTERVAL)
+		for s.trySchedule() {
+		}
+		select {
+		case <-ctx.Done():
+			return
+		case <-s.kick:
+		case <-ticker.C:
 		}
 	}
 }
@@ -112,13 +131,14 @@ func (s *Scheduler) dispatchWork(j *job.Job, nodeIDs []string) error {
 }
 
 func assignmentEnv(j *job.Job, rank, nnodes int) map[string]string {
-	env := make(map[string]string, len(j.Spec.Env)+3)
+	env := make(map[string]string, len(j.Spec.Env)+4)
 	for k, v := range j.Spec.Env {
 		env[k] = v
 	}
 	env["SLURMLITE_JOB_ID"] = j.ID
 	env["SLURMLITE_NODE_RANK"] = strconv.Itoa(rank)
 	env["SLURMLITE_NNODES"] = strconv.Itoa(nnodes)
+	env["SLURMLITE_CPUS_PER_NODE"] = strconv.Itoa(j.Spec.Resources.CPUsPerNode)
 	return env
 }
 
@@ -133,5 +153,6 @@ func Make(jobs *job.JobManager, registry *cluster.Registry, dispatch Dispatcher)
 		jobManager: jobs,
 		registry:   registry,
 		dispatch:   dispatch,
+		kick:       make(chan struct{}, 1),
 	}
 }
