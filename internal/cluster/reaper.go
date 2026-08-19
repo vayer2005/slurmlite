@@ -1,16 +1,30 @@
-// Node reaper: detect and handle stale/dead nodes.
-//
-// Responsibilities:
-//   - Run periodically (background goroutine in controller)
-//   - Scan registry for nodes whose last_heartbeat exceeds timeout threshold
-//   - Mark those nodes offline
-//   - If a dead node was running a job:
-//       - Mark the job as failed (partial gang failure)
-//       - Release any reserved resources on remaining nodes for that job
-//       - Notify scheduler to attempt rescheduling or fail the job
-//
-// This is critical for fault tolerance in distributed scheduling.
-
 package cluster
 
-// TODO: implement reaper loop with configurable timeout
+import "fmt"
+
+func handleDeadNodes(r *Registry, jobs JobFailure, dead []Node) {
+	if len(dead) == 0 {
+		return
+	}
+
+	seen := make(map[string]struct{})
+	for _, n := range dead {
+		if n.CurrentJobID == "" {
+			continue
+		}
+		if _, ok := seen[n.CurrentJobID]; ok {
+			continue
+		}
+		seen[n.CurrentJobID] = struct{}{}
+
+		reason := fmt.Sprintf("node %s lost", n.ID)
+		if jobs != nil {
+			ids, cpus, ok := jobs.FailRunningJob(n.CurrentJobID, reason)
+			if ok {
+				_ = r.ReleaseNodes(ids, cpus)
+				continue
+			}
+		}
+		_ = r.ReleaseNodes([]string{n.ID}, n.AllocatedCPUs)
+	}
+}

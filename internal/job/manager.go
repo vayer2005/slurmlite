@@ -162,6 +162,24 @@ func (m *JobManager) MarkFailed(id string, exitCode int, errMsg string) error {
 	return nil
 }
 
+// FailRunningJob marks a running job failed (node loss) and returns its
+// assignment so the caller can release nodes. ok is false if the job is not running.
+func (m *JobManager) FailRunningJob(id, reason string) ([]string, int, bool) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	job, ok := m.jobs[id]
+	if !ok || job.Status != StatusRunning {
+		return nil, 0, false
+	}
+	if err := job.MarkFailed(1, reason); err != nil {
+		return nil, 0, false
+	}
+	delete(m.reports, id)
+	assigned := append([]string(nil), job.AssignedNodeIDs...)
+	return assigned, job.Spec.Resources.CPUsPerNode, true
+}
+
 // Cancel transitions a job to cancelled. The second return value is true when the
 // caller must signal assigned nodes to stop the job.
 func (m *JobManager) Cancel(id string) (bool, error) {

@@ -60,7 +60,59 @@ func (r *Registry) RegisterNode(node Node) {
 	if node.Status == "" {
 		node.Status = StatusOnline
 	}
+	if node.LastHeartbeat.IsZero() {
+		node.LastHeartbeat = time.Now()
+	}
 	r.nodes[node.ID] = node
+}
+
+func (r *Registry) Get(id string) (Node, bool) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	n, ok := r.nodes[id]
+	return n, ok
+}
+
+// Touch records a heartbeat for a registered node using the controller clock
+// and marks it online. Returns false if the node is not registered.
+func (r *Registry) Touch(nodeID string) bool {
+	if nodeID == "" {
+		return false
+	}
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	n, ok := r.nodes[nodeID]
+	if !ok {
+		return false
+	}
+	n.LastHeartbeat = time.Now()
+	n.Status = StatusOnline
+	r.nodes[nodeID] = n
+	return true
+}
+
+// ReapStale marks online nodes offline when their last heartbeat is older
+// than timeout and returns those nodes (including CurrentJobID at death).
+func (r *Registry) ReapStale(now time.Time, timeout time.Duration) []Node {
+	if timeout <= 0 {
+		return nil
+	}
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	var dead []Node
+	for id, n := range r.nodes {
+		if n.Status != StatusOnline {
+			continue
+		}
+		if now.Sub(n.LastHeartbeat) <= timeout {
+			continue
+		}
+		n.Status = StatusOffline
+		r.nodes[id] = n
+		dead = append(dead, n)
+	}
+	return dead
 }
 
 func (r *Registry) UpdateNode(node Node) {
