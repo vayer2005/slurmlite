@@ -5,7 +5,6 @@
 //   - Update node status and resource usage on heartbeat
 //   - Mark node offline when reaper detects missed heartbeats
 //   - ListNodes: return snapshot for slctl nodes and scheduler
-//   - FindAvailableNodes: return nodes with enough free CPUs for gang scheduling
 //   - ReserveNodes / ReleaseNodes: tie nodes to a running job
 //
 // Node fields:
@@ -97,27 +96,6 @@ func (r *Registry) ListNodes() []Node {
 	}
 	sort.Slice(out, func(i, j int) bool { return out[i].ID < out[j].ID })
 	return out
-}
-
-func (r *Registry) FindAvailableNodes(numNodes, cpusPerNode int) []Node {
-	if numNodes < 1 {
-		return nil
-	}
-	nodes := r.ListNodes()
-	out := make([]Node, 0, numNodes)
-	for _, n := range nodes {
-		if n.Status != StatusOnline || n.CurrentJobID != "" {
-			continue
-		}
-		if n.TotalCPUs-n.AllocatedCPUs < cpusPerNode {
-			continue
-		}
-		out = append(out, n)
-		if len(out) == numNodes {
-			return out
-		}
-	}
-	return nil
 }
 
 func (r *Registry) ReserveNodes(jobID string, nodeIDs []string, cpusPerNode int) error {
