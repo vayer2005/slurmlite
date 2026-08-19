@@ -13,4 +13,35 @@
 
 package scheduler
 
+import (
+	"time"
+
+	"distr-scheduling/internal/job"
+)
 // TODO: implement Scheduler type and scheduling loop
+
+
+const SCHEDULER_INTERVAL = 1 * time.Second
+
+type Scheduler struct {
+	jobManager *job.JobManager
+	
+}
+
+
+func (s *Scheduler) Run() {
+	for {
+		job, ok := s.jobManager.PeekPendingJob()
+		if !ok {
+			time.Sleep( SCHEDULER_INTERVAL)
+			continue
+		}
+		
+	}
+}
+
+func Make() *Scheduler {
+	return &Scheduler{
+		jobManager: job.Make(),
+	}
+}
