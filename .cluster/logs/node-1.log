@@ -1,0 +1,2 @@
+2026/08/19 14:38:07 node node-1 connected to 127.0.0.1:50051 (heartbeat every 1s)
+hello: job=job-1 rank=0 nnodes=2 cpus=1 host=Vittals-MacBook-Air.local pid=90411
