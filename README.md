@@ -32,8 +32,30 @@ You submit a job via CLI. The **controller** tracks which compute **nodes** are 
 | `slctl cancel <id>` | Cancel a job                        |
 | `slctl nodes`       | Show cluster nodes and their status |
 
+Example `slctl nodes` output with four online nodes:
 
+```
+$ slctl nodes
 
+ID      STATUS  CPUS  USED  JOB  HEARTBEAT                  HOST
+node-1  online  4     0     -    2026-08-19T14:24:28-07:00  Vittals-MacBook-Air.local
+node-2  online  4     0     -    2026-08-19T14:24:28-07:00  Vittals-MacBook-Air.local
+node-3  online  4     0     -    2026-08-19T14:24:29-07:00  Vittals-MacBook-Air.local
+node-4  online  4     0     -    2026-08-19T14:24:28-07:00  Vittals-MacBook-Air.local
+```
+
+Example `slctl queue` output:
+
+```
+$ slctl queue
+
+ID     STATUS     NODES  CPUS  TIME  ASSIGNED              COMMAND
+job-1  completed  2      1     -     node-1,node-2         /bin/echo hello
+job-2  completed  3      1     -     node-1,node-2,node-3  /Users/vittalayer/Desktop/Projsd/distr-scheduling/examples/hello.sh
+job-3  running    2      2     -     node-1,node-2         /Users/vittalayer/Desktop/Projsd/distr-scheduling/examples/hold.sh 15
+job-4  failed     1      1     5s    node-3                /Users/vittalayer/Desktop/Projsd/distr-scheduling/examples/timeout.sh
+job-5  failed     1      1     -     node-4                /Users/vittalayer/Desktop/Projsd/distr-scheduling/examples/fail.sh
+```
 
 ## Architecture
 
