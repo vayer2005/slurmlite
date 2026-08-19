@@ -7,9 +7,6 @@
 //   - Cancel job: if pending remove from queue; if running signal nodes to kill work
 //   - List jobs for slctl queue (filter by status)
 //   - Store completed jobs briefly for status queries (or persist to disk later)
-//
-// All state transitions should be atomic and notify the scheduler when relevant
-// (e.g. job finished → release resources → scheduler can schedule next job).
 
 package job
 
